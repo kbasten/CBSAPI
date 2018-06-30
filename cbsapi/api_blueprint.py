@@ -3,7 +3,7 @@ from functools import wraps
 from flask import Blueprint, g, jsonify, abort, Response
 from werkzeug.exceptions import HTTPException
 
-api = Blueprint('API', 'api_bp')
+api_bp = Blueprint('API', 'api_bp')
 
 
 def default_status_response(f):
@@ -21,7 +21,7 @@ def default_status_response(f):
     return wrapper
 
 
-@api.errorhandler(HTTPException)
+@api_bp.errorhandler(HTTPException)
 def http_exception(e: HTTPException) -> Response:
     """
     Error handler for http exceptions raised through flask.abort,
@@ -32,7 +32,7 @@ def http_exception(e: HTTPException) -> Response:
     return response
 
 
-@api.route('/online')
+@api_bp.route('/online')
 @default_status_response
 def online():
     with g.db.cursor() as cursor:
@@ -41,7 +41,7 @@ def online():
     return ret
 
 
-@api.route('/blackmarket')
+@api_bp.route('/blackmarket')
 @default_status_response
 def blackmarket():
     with g.db.cursor() as cursor:
@@ -58,7 +58,7 @@ def blackmarket():
         return cursor.fetchall()
 
 
-@api.route('/ranking')
+@api_bp.route('/ranking')
 @default_status_response
 def ranking():
     with g.db.cursor() as cursor:

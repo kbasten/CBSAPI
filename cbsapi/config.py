@@ -3,7 +3,8 @@ import os
 FLASK = {
     'host': os.getenv('CBSAPI_HOST', '127.0.0.1'),
     'port': int(os.getenv('CBSAPI_PORT', 5000)),
-    'debug': bool(os.getenv('CBSAPI_DEBUG', 0))
+    # first we convert into int, because bool('0') is True, as the string is nonempty
+    'debug': bool(int(os.getenv('CBSAPI_DEBUG', 0)))  # Use 1 for True 0 for False
 }
 
 DATABASE = {

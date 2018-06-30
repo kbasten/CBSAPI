@@ -1,13 +1,13 @@
 from flask import Flask, g
 import pymysql
 
-from api_blueprint import api
+from api_blueprint import api_bp
 
 app = Flask('CBS_API')
 
 app.config.from_object('config')
 
-app.register_blueprint(api)
+app.register_blueprint(api_bp)
 
 
 @app.before_request
