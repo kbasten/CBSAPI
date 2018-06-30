@@ -8,4 +8,4 @@ This API provides an endpoint for a Caller's Bane database.
 
 `python3 setup.py install`
 
-Copy `config.yaml.example` to `config.yaml` and run `run.py` to start the API.
+Either edit `cbsapi/config.py` or edit env variables its using and run `run.py` to start the API.
