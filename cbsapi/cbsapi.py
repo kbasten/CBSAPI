@@ -64,3 +64,16 @@ class CBSAPI(object):
                 return cursor.fetchall()
 
         return '/blackmarket', blackmarket
+
+    def endpoint_toprankedprofiles(self):
+        def toprankedprofiles():
+            with self.db as cursor:
+                cursor.execute("SELECT P.name, PD.alpha_ranked * PD.real_ranked AS rating "
+                    "FROM profiles P "
+                    "INNER JOIN profile_data PD "
+                    "ON PD.profile_id = P.id "
+                    "ORDER BY rating DESC "
+                    "LIMIT 50")
+                return cursor.fetchall()
+
+        return '/ranking', toprankedprofiles
