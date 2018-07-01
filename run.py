@@ -1,10 +1,8 @@
+import pathlib
 import sys
 
-from cbsapi.cbsapi import CBSAPI
+sys.path.insert(0, (pathlib.Path.cwd() / 'cbsapi').as_posix())
 
-config = 'config.yaml'
-if len(sys.argv) >= 2:
-    config = sys.argv[1]
-cbsapi = CBSAPI(config)
+from cbsapi import app
 
-cbsapi.run()
+app.run(**app.config['FLASK'])

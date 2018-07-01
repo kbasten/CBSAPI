@@ -99,6 +99,9 @@ ENV/
 # mypy
 .mypy_cache/
 
+#IDEs/editors
+.idea/
+
 
 ###########CALLER'S BANE API############
 # ignore config files
