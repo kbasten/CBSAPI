@@ -27,9 +27,16 @@ def http_exception(e: HTTPException) -> Response:
     Error handler for http exceptions raised through flask.abort,
     so that they could be served as JSON
     """
-    # TODO weirdly this is catching more than just HTTPExceptions, so description and code weren't always present
-    response = jsonify({'status': 'ERROR', 'description': getattr(e, 'description', str(e))})
+    response = {
+        'status': 'ERROR',
+        'description': 'Internal server error'
+    }
+    if isinstance(e, HTTPException):
+        response['description'] = getattr(e, 'description', str(e))
+
+    response = jsonify(response)
     response.status_code = getattr(e, 'code', 500)
+
     return response
 
 
