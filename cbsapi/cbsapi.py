@@ -1,11 +1,18 @@
+import sys
 from flask import Flask, g
 import pymysql
 
+from cbsapi.config import mk_conf_from_file, mk_conf_from_env
 from cbsapi.api_blueprint import api_bp
 
 app = Flask('CBS_API')
 
-app.config.from_object('cbsapi.config')
+if len(sys.argv) == 2:
+    cfg = mk_conf_from_file(sys.argv[1])
+else:
+    cfg = mk_conf_from_env()
+
+app.config.from_object(cfg)
 
 app.register_blueprint(api_bp)
 

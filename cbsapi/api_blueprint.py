@@ -144,7 +144,7 @@ def player(name):
             name
         )
         player_data = cursor.fetchone()
-    if not player_data['name'] is None:
+    if player_data['name'] is None:
         abort(404, description="Player not found")
     transformed_data = dict(
         name=player_data['name'],
