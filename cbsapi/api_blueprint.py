@@ -1,6 +1,6 @@
 from functools import wraps
 
-from flask import Blueprint, g, jsonify, abort, Response
+from flask import Blueprint, g, jsonify, abort, Response, request
 from werkzeug.exceptions import HTTPException
 
 api_bp = Blueprint('API', 'api_bp')
@@ -78,93 +78,101 @@ def player(name):
     """
     Gets information about a player by their name
 
-    Returned data:
+    To get more than just the basic data, user list of arguments (RFC6570)
+
+    Available filters: rating, avatar, unlocks, collection, games
+
+    e.g.: `/player/Robot?filter=rating&filter=avatar&filter=unlocks&filter=cards&filter=games` would return::
 
         {
-            name: string                        # nickname
-            rating: float                       # display rating (not hidden)
-            gold: int                           # gold owned
-            last_login: timestamp               # last login, can be null
-            created: timestamp                  # When was the account created
-            achievements_unlocked: int          # How many achievements did the player unlock,
-            cosmetic_unlocks: {
-                avatar_pieces: int              # How many unlockable avatar pieces the player has unlocked
-                idols: int                      # How many unlockable idols the player has unlocked
-            }
-            avatar: {
-                head: int                       # id of the player's head avatar piece, can be null
-                body: int                       # id of the player's body avatar piece, can be null
-                legs: int                       # id of the player's legs avatar piece, can be null
-                arms_back: int                  # id of the player's arms back avatar piece, can be null
-                arms_front: int                 # id of the player's arms front avatar piece, can be null
-            }
-            collection: {
-                commons: int                    # number of owned common cards
-                uncommons: int                  # number of owned uncommon cards
-                rares: int                      # number of owned rare cards
-            }
+            "data": {
+                "avatar": {                                 # avatar can be null if the player didn't
+                    "head": 22,                             # login yet, otherwise has ids of avatar pieces
+                    "body": 8,
+                    "legs": 39,
+                    "arm_back": 1,
+                    "arm_front": 15
+                },
+                "created": 1403697353,                      # timestamp of user registration
+                "games": {
+                    "lost": 0
+                    "won": 2
+                },
+                "last_login": null,                         # timestamp of last login or null
+                "name": "Robot",
+                "rating": 0.0036600898738470278,            # player's displayed rating
+                "unlocks": {
+                    "achievements": 0,
+                    "avatar_pieces": 0,
+                    "idols": 0
+                }
+            },
+            "status": "OK"
         }
     """
-    name = name.lower()
+    filters = request.args.getlist('filter')
     with g.db.cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT p.name                                                             AS name,
-                   pd.alpha_ranked * pd.real_ranked                                   AS rating,
-                   pd.gold                                                            AS gold,
-                   p.login_date                                                       AS last_login,
-                   p.created                                                          AS created,
-                   (SELECT COUNT(*) FROM achievement_unlocks WHERE profile_id = p.id) AS achievements_unlocked,
-                   (SElECT COUNT(*) FROM avatar_unlocks WHERE profile_id = p.id)      AS avatar_unlocked,
-                   (SELECT COUNT(*) FROM idol_unlocks WHERE profile_id = p.id)        AS idols_unlocked,
-                   a.head                                                             AS avatar_head,
-                   a.body                                                             AS avatar_body,
-                   a.leg                                                              AS avatar_legs,
-                   a.arm_back                                                         AS arm_back,
-                   a.arm_front                                                        AS arm_front,
-                   CAST(SUM(ct.rarity = 0) AS UNSIGNED)                               AS commons,
-                   CAST(SUM(ct.rarity = 1) AS UNSIGNED)                               AS uncommons,
-                   CAST(SUM(ct.rarity = 2) AS UNSIGNED)                               AS rares,
-                   CAST(SUM(gps.win = 1) AS UNSIGNED)                                 AS games_won,
-                   CAST(SUM(gps.win=0) AS UNSIGNED)                                   AS games_lost
-            FROM profiles p
-                   INNER JOIN profile_data pd ON pd.profile_id = p.id
-                   LEFT JOIN avatars a ON a.profile_id = p.id
-                   LEFT JOIN cards c ON c.owner_id = p.id
-                   LEFT JOIN card_types ct ON ct.id = c.type_id
-                   LEFT JOIN game_player_stats gps ON gps.profile_id = p.id
-            WHERE p.name = %s;""",
-            name
-        )
-        player_data = cursor.fetchone()
-    if not player_data['name'] is None:
-        abort(404, description="Player not found")
-    transformed_data = dict(
-        name=player_data['name'],
-        rating=player_data['rating'],
-        gold=player_data['gold'],
-        last_login=player_data['last_login'].timestamp() if player_data['last_login'] else player_data['last_login'],
-        created=player_data['created'].timestamp(),
-        achievements=player_data['achievements_unlocked'],
-        cosmetics_unlocks=dict(
-            avatar_pieces=player_data['avatar_unlocked'],
-            idols=player_data['idols_unlocked']
-        ),
-        avatar=dict(
-            head=player_data['avatar_head'],
-            body=player_data['avatar_body'],
-            legs=player_data['avatar_legs'],
-            arm_back=player_data['arm_back'],
-            arm_front=player_data['arm_front'],
-        ),
-        collection=dict(
-            commons=player_data['commons'],
-            uncommons=player_data['uncommons'],
-            rares=player_data['rares']
-        ),
-        games=dict(
-            won=player_data['games_won'] or 0,
-            lost=player_data['games_lost'] or 0
-        )
-    )
-    return transformed_data
+        # Select basic data from the profiles table
+        cursor.execute("""
+        SELECT name, id, created, login_date AS last_login
+        FROM profiles
+        WHERE LOWER(name) = %s
+        """, name)
+        result = cursor.fetchone()
+        user_id = result.pop('id')
+        if user_id is None:
+            abort(404, description="Player not found")
+        # Convert datetime to timestamps
+        result['created'] = result['created'].timestamp()
+        if result['last_login'] is not None:
+            result['last_login'] = result['last_login'].timestamp()
+        # If rating was in filters, add it into the profile_data query through format
+        select_rating = ', alpha_ranked * real_ranked AS rating' if 'rating' in filters else ''
+        cursor.execute("""
+        SELECT 
+            gold{}
+        FROM profile_data
+        WHERE profile_id = %s
+        """.format(select_rating), user_id)
+        result.update(cursor.fetchone())
+
+        if 'avatar' in filters:
+            cursor.execute("""
+            SELECT head, body, leg AS legs, arm_back, arm_front
+            FROM avatars
+            WHERE profile_id = %s
+            """, user_id)
+            result['avatar'] = cursor.fetchone()
+
+        if 'unlocks' in filters:
+            cursor.execute("""
+            SELECT 
+                (SELECT COUNT(*) FROM achievement_unlocks WHERE profile_id = %s)    AS achievements,
+                (SELECT COUNT(*) FROM avatar_unlocks WHERE profile_id = %s)         AS avatar_pieces,
+                (SELECT COUNT(*) FROM idol_unlocks WHERE profile_id = %s)           AS idols
+            """, (user_id, user_id, user_id))
+            result['unlocks'] = cursor.fetchone()
+
+        if 'collection' in filters:
+            cursor.execute("""
+            SELECT 
+                CAST(SUM(ct.rarity = 0) AS UNSIGNED)    AS commons,
+                CAST(SUM(ct.rarity = 1) AS UNSIGNED)    AS uncommons,
+                CAST(SUM(ct.rarity = 2) AS UNSIGNED)    AS rares
+            FROM cards c
+                JOIN card_types ct on c.type_id = ct.id
+            WHERE c.owner_id = %s
+            """, user_id)
+            result['collection'] = cursor.fetchone()
+
+        if 'games' in filters:
+            cursor.execute("""
+            SELECT 
+                CAST(SUM(win=1) AS UNSIGNED)    AS won,
+                CAST(SUM(win=0) AS UNSIGNED)    AS lost
+            FROM game_player_stats
+            WHERE profile_id = %s
+            """, user_id)
+            result['games'] = cursor.fetchone()
+
+    return result
