@@ -122,45 +122,49 @@ def player(name):
                    a.leg                                                              AS avatar_legs,
                    a.arm_back                                                         AS arm_back,
                    a.arm_front                                                        AS arm_front,
-                   cc.commons                                                         AS commons,
-                   cc.uncommons                                                       AS uncommons,
-                   cc.rares                                                           AS rares
+                   CAST(SUM(ct.rarity = 0) AS UNSIGNED)                               AS commons,
+                   CAST(SUM(ct.rarity = 1) AS UNSIGNED)                               AS uncommons,
+                   CAST(SUM(ct.rarity = 2) AS UNSIGNED)                               AS rares,
+                   CAST(SUM(gps.win = 1) AS UNSIGNED)                                 AS games_won,
+                   CAST(SUM(gps.win=0) AS UNSIGNED)                                   AS games_lost
             FROM profiles p
                    INNER JOIN profile_data pd ON pd.profile_id = p.id
                    LEFT JOIN avatars a ON a.profile_id = p.id
-                   LEFT JOIN (SELECT owner_id,
-                                     CAST(SUM(ct.rarity = 0) AS UNSIGNED) AS commons,
-                                     CAST(SUM(ct.rarity = 1) AS UNSIGNED) AS uncommons,
-                                     CAST(SUM(ct.rarity = 2) AS UNSIGNED) AS rares
-                              FROM cards c
-                                     INNER JOIN card_types ct ON c.type_id = ct.id
-                              GROUP BY owner_id) AS cc ON cc.owner_id = p.id
+                   LEFT JOIN cards c ON c.owner_id = p.id
+                   LEFT JOIN card_types ct ON ct.id = c.type_id
+                   LEFT JOIN game_player_stats gps ON gps.profile_id = p.id
             WHERE p.name = %s;""",
             name
         )
         player_data = cursor.fetchone()
-        transformed_data = dict(
-            name=player_data['name'],
-            rating=player_data['rating'],
-            gold=player_data['gold'],
-            last_login=player_data['last_login'].timestamp() if player_data['last_login'] else player_data['last_login'],
-            created=player_data['created'].timestamp(),
-            achievements=player_data['achievements_unlocked'],
-            cosmetics_unlocks=dict(
-                avatar_pieces=player_data['avatar_unlocked'],
-                idols=player_data['idols_unlocked']
-            ),
-            avatar=dict(
-                head=player_data['avatar_head'],
-                body=player_data['avatar_body'],
-                legs=player_data['avatar_legs'],
-                arm_back=player_data['arm_back'],
-                arm_front=player_data['arm_front'],
-            ),
-            collection=dict(
-                commons=player_data['commons'],
-                uncommons=player_data['uncommons'],
-                rares=player_data['rares']
-            )
+    if not player_data['name'] is None:
+        abort(404, description="Player not found")
+    transformed_data = dict(
+        name=player_data['name'],
+        rating=player_data['rating'],
+        gold=player_data['gold'],
+        last_login=player_data['last_login'].timestamp() if player_data['last_login'] else player_data['last_login'],
+        created=player_data['created'].timestamp(),
+        achievements=player_data['achievements_unlocked'],
+        cosmetics_unlocks=dict(
+            avatar_pieces=player_data['avatar_unlocked'],
+            idols=player_data['idols_unlocked']
+        ),
+        avatar=dict(
+            head=player_data['avatar_head'],
+            body=player_data['avatar_body'],
+            legs=player_data['avatar_legs'],
+            arm_back=player_data['arm_back'],
+            arm_front=player_data['arm_front'],
+        ),
+        collection=dict(
+            commons=player_data['commons'],
+            uncommons=player_data['uncommons'],
+            rares=player_data['rares']
+        ),
+        games=dict(
+            won=player_data['games_won'] or 0,
+            lost=player_data['games_lost'] or 0
         )
-        return transformed_data
+    )
+    return transformed_data
