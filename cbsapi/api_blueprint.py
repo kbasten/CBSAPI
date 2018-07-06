@@ -175,10 +175,13 @@ def player(name):
         if 'games' in filters:
             cursor.execute("""
             SELECT 
-                CAST(SUM(win=1) AS UNSIGNED)    AS won,
-                CAST(SUM(win=0) AS UNSIGNED)    AS lost
-            FROM game_player_stats
-            WHERE profile_id = %s
+                CAST(SUM(gps.win=1) AS UNSIGNED)    AS won,
+                CAST(SUM(gps.win=0) AS UNSIGNED)    AS lost
+            FROM game_player_stats gps
+            INNER JOIN game_stats gs
+            ON gps.game_id = gs.id
+            WHERE gps.profile_id = %s
+            AND gs.game_type = 'MP_RANKED'
             """, user_id)
             result['games'] = cursor.fetchone()
 
