@@ -126,9 +126,11 @@ def player(name):
         WHERE LOWER(name) = %s
         """, name)
         result = cursor.fetchone()
-        user_id = result.pop('id')
-        if user_id is None:
+
+        if result is None:
             abort(404, description="Player not found")
+
+        user_id = result.pop('id')
         # Convert datetime to timestamps
         result['created'] = result['created'].timestamp()
         if result['last_login'] is not None:
