@@ -179,7 +179,13 @@ def player(name):
                 CAST(SUM(gps.win=0) AS UNSIGNED)    AS lost
             FROM game_player_stats gps
             INNER JOIN game_stats gs
-            ON ((gps.profile_id = gs.white_profile_id OR gps.profile_id = gs.black_profile_id) AND gps.game_id = gs.id)
+            ON (
+                (
+                    gps.profile_id = gs.white_profile_id 
+                    OR gps.profile_id = gs.black_profile_id
+                ) 
+                AND gps.game_id = gs.id
+            )
             WHERE gps.profile_id = %s
             AND gs.game_type = 'MP_RANKED'
             """, user_id)
