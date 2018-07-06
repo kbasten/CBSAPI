@@ -87,9 +87,9 @@ def player(name):
 
     To get more than just the basic data, user list of arguments (RFC6570)
 
-    Available filters: rating, avatar, unlocks, collection, games
+    Available filters: avatar, unlocks, collection, games
 
-    e.g.: `/player/Robot?filter=rating&filter=avatar&filter=unlocks&filter=cards&filter=games` would return::
+    e.g.: `/player/Robot?filter=avatar&filter=unlocks&filter=cards&filter=games` would return::
 
         {
             "data": {
@@ -135,14 +135,12 @@ def player(name):
         result['created'] = result['created'].timestamp()
         if result['last_login'] is not None:
             result['last_login'] = result['last_login'].timestamp()
-        # If rating was in filters, add it into the profile_data query through format
-        select_rating = ', alpha_ranked * real_ranked AS rating' if 'rating' in filters else ''
+
         cursor.execute("""
-        SELECT 
-            gold{}
+        SELECT gold, alpha_ranked * real_ranked AS rating
         FROM profile_data
         WHERE profile_id = %s
-        """.format(select_rating), user_id)
+        """, user_id)
         result.update(cursor.fetchone())
 
         if 'avatar' in filters:
