@@ -175,8 +175,8 @@ def player(name):
         if 'games' in filters:
             cursor.execute("""
             SELECT 
-                CAST(SUM(gps.win=1) AS UNSIGNED)    AS won,
-                CAST(SUM(gps.win=0) AS UNSIGNED)    AS lost
+                COALESCE(CAST(SUM(gps.win=1) AS UNSIGNED), 0)    AS won,
+                COALESCE(CAST(SUM(gps.win=0) AS UNSIGNED), 0)    AS lost
             FROM game_player_stats gps
             INNER JOIN game_stats gs
             ON (
